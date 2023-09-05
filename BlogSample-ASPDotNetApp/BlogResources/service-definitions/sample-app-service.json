@@ -1,0 +1,40 @@
+{
+  "cluster": "BlogCluster",
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  },
+  "deploymentController": {
+    "type": "ECS"
+  },
+  "desiredCount": 1,
+  "enableECSManagedTags": true,
+  "enableExecuteCommand": true,
+  "launchType": "EC2",
+  "propagateTags": "SERVICE",
+  "serviceName": "app-service",
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:524935505455:targetgroup/BlogEcsInstanceTg/f11c34ee9dc74daa",
+      "loadBalancerName": "",
+      "containerName": "sample-app",
+      "containerPort": 80
+    }
+  ],
+  "serviceConnectConfiguration": {
+    "enabled": true,
+    "services": [
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-create-group": "true",
+        "awslogs-group": "/ecs/service-connect-proxy",
+        "awslogs-region": "us-east-1",
+        "awslogs-stream-prefix": "service-connect-proxy"
+      }
+    }
+  },
+  "taskDefinition": "sample-app"
+}
+                        

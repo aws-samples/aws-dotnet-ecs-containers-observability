@@ -1,0 +1,594 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+    Generator: "former2"
+Description: ""
+Resources:
+
+#Networking Section
+  BlogVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '10.3.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: BlogVPC
+
+#Public Subnet
+  BlogPublicSubnetAZ1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: '10.3.0.0/24'
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: BlogPublicSubnetAZ1
+  BlogPublicSubnetAZ2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: '10.3.1.0/24'
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: BlogPublicSubnetAZ2
+
+  BlogInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref BlogVPC
+      InternetGatewayId: !Ref BlogInternetGateway
+
+  
+  BlogNATGateway:
+   Type: AWS::EC2::NatGateway
+   Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref BlogPublicSubnetAZ1
+      Tags:
+        - Key: Name
+          Value: blog-nat-gateway
+  NATGatewayEIP:
+   Type: AWS::EC2::EIP
+   Properties:
+      Domain: vpc
+   DependsOn: BlogVPC
+
+  BlogPublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref BlogVPC
+      Tags:
+        - Key: Name
+          Value: BlogPublicRouteTable
+
+  BlogPublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref BlogPublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref BlogInternetGateway
+
+  PublicSubnetAZ1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BlogPublicSubnetAZ1
+      RouteTableId: !Ref BlogPublicRouteTable
+    DependsOn: 
+      - BlogPublicRoute
+  PublicSubnetAZ2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BlogPublicSubnetAZ2
+      RouteTableId: !Ref BlogPublicRouteTable
+    DependsOn: 
+      - BlogPublicRoute
+
+#Private Subnet
+  BlogPrivateSubnetAZ1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: '10.3.2.0/24'
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: BlogPrivateSubnetAZ1
+  BlogPrivateSubnetAZ2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: '10.3.3.0/24'
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: BlogPrivateSubnetAZ2
+
+  BlogPrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref BlogVPC
+      Tags:
+        - Key: Name
+          Value: BlogPrivateRouteTable
+
+  BlogPrivateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref BlogPrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref BlogNATGateway
+
+  PrivateSubnetAZ1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BlogPrivateSubnetAZ1
+      RouteTableId: !Ref BlogPrivateRouteTable
+    DependsOn: 
+      - BlogPrivateRoute
+  PrivateSubnetAZ2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref BlogPrivateSubnetAZ2
+      RouteTableId: !Ref BlogPrivateRouteTable
+    DependsOn: 
+      - BlogPrivateRoute
+
+#Security Groups 
+  BlogEcsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allows Connections from the Blog LoadBalancer'
+      VpcId: !Ref BlogVPC
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: 32768 #Dynamic Port Mapping for Bridge Mode.
+          ToPort: 65535          
+          SourceSecurityGroupId: !Ref BlogLoadBalancerSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0         
+
+  BlogAdotCollectorSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allows Connections from the Blog LoadBalancer'
+      VpcId: !Ref BlogVPC
+      SecurityGroupIngress:
+        - IpProtocol: '-1'    
+          SourceSecurityGroupId:
+            Fn::GetAtt : ["BlogVPC", "DefaultSecurityGroup"]
+        - IpProtocol: '-1'
+          SourceSecurityGroupId:
+            !Ref BlogEcsSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+
+        
+
+#ECS Section
+  BlogCapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+        AutoScalingGroupProvider:
+            AutoScalingGroupArn: !Ref ECSAutoScalingGroup
+            ManagedScaling:
+                Status: ENABLED
+            ManagedTerminationProtection: DISABLED
+  
+  BlogCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: "BlogCluster"
+      ServiceConnectDefaults:
+        Namespace: BlogCluster   
+
+  ClusterCPAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref BlogCluster
+      CapacityProviders:
+        - "FARGATE"
+        - "FARGATE_SPOT"
+        - !Ref BlogCapacityProvider
+      DefaultCapacityProviderStrategy:
+        - Base: 0
+          Weight: 1
+          CapacityProvider: !Ref BlogCapacityProvider
+
+  BlogServiceConnectNameSpace:
+    Type: AWS::ServiceDiscovery::HttpNamespace
+    Properties: 
+      Description: Created from Cloudformation Template
+      Name: BlogCluster
+      Tags: 
+        - Key: Name
+          Value: BlogCluster
+
+  BlogInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref EC2InstanceRole
+
+  EC2InstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role'
+
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      DesiredCapacity: '1'
+      MinSize: '1'
+      MaxSize: '5'
+      LaunchConfigurationName: !Ref EC2LaunchConfig
+      VPCZoneIdentifier:
+        - !Ref BlogPrivateSubnetAZ1
+        - !Ref BlogPrivateSubnetAZ2
+      Tags:
+        - Key: Name
+          Value: BlogClusterInstance
+          PropagateAtLaunch: true
+
+  EC2LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0507dff4275d8dd6d # Replace with your desired Amazon Linux AMI ID
+      InstanceType: t3.xlarge
+      SecurityGroups:
+        - !Ref BlogEcsSecurityGroup
+      IamInstanceProfile: !Ref BlogInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          echo ECS_CLUSTER=${BlogCluster} >> /etc/ecs/ecs.config
+          yum install -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource ECSAutoScalingGroup --region ${AWS::Region}
+
+  ECSTaskRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ecs-tasks.amazonaws.com'
+                - 'ecs.amazonaws.com'
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+        - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
+        - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+    
+
+  AdotConfigAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: 
+       - !Ref ECSTaskExecutionRole
+      PolicyName: AdotConfigAccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameters
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/otel-collector-config'
+                
+  OtelConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: otel-collector-config
+      Type: String
+      Value: |
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: 0.0.0.0:4317
+
+        processors:
+          batch:
+
+        exporters:
+          prometheusremotewrite:
+            endpoint: <YOUR-APS-WORKSPACE-ENDPOINT>/api/v1/remote_write
+            auth:
+              authenticator: sigv4auth
+          awsxray:
+            region: us-east-1
+          logging:
+            loglevel: debug
+
+        extensions:
+          sigv4auth:
+            region: us-east-1 
+            
+        service:
+          extensions: [sigv4auth]
+          pipelines:
+            traces:
+              receivers:  [otlp]
+              processors: [batch]
+              exporters:  [awsxray]
+            metrics:
+              receivers:  [otlp]
+              processors: [batch]
+              exporters:  [prometheusremotewrite]
+      Description: SSM Parameter for the otel-config.
+
+  ECSTaskExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ecs-tasks.amazonaws.com'
+                - 'ecs.amazonaws.com'
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+
+
+# Load Balancer
+  BlogLoadBalancerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Load Balancer Security Group
+      VpcId: !Ref BlogVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+
+  BlogLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Subnets:
+        - !Ref BlogPublicSubnetAZ1
+        - !Ref BlogPublicSubnetAZ2
+      SecurityGroups:
+        - !Ref BlogLoadBalancerSecurityGroup
+
+  TargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      VpcId: !Ref BlogVPC
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: "/"
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      Name: BlogEcsInstanceTg
+
+  ElasticLoadBalancingV2Listener:
+      Type: "AWS::ElasticLoadBalancingV2::Listener"
+      Properties:
+        LoadBalancerArn: !Ref BlogLoadBalancer
+        Port: 80
+        Protocol: HTTP
+        # SslPolicy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+        DefaultActions: 
+          - Order: 1
+            TargetGroupArn: !Ref TargetGroup
+            Type: "forward"
+
+ # Metric and Log Endpoints     
+  AmpWorkspace:
+    Type: 'AWS::APS::Workspace'
+    Properties:
+      Alias: "BlogAMPWorkspace"
+
+#OpenSearch Key
+  Key:
+    Type: AWS::KMS::Key
+    Properties:
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "es.amazonaws.com"
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:CreateGrant
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub "es.${AWS::Region}.amazonaws.com"
+                kms:CallerAccount: !Ref AWS::AccountId
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "*"
+            Resource: "*"
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - kms:Describe*
+              - kms:Get*
+              - kms:List*
+            Resource: "*"
+
+#OpenSearch Domain
+  BlogOpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: 'blog-os-domain'  
+      ClusterConfig:
+        DedicatedMasterEnabled: false
+        InstanceCount: 3
+        ZoneAwarenessEnabled: false
+        InstanceType: 'r6g.large.search'
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 100
+        VolumeType: 'gp3'
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        CustomEndpointEnabled: false
+        EnforceHTTPS: true
+        TLSSecurityPolicy: Policy-Min-TLS-1-0-2019-07
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: 'Allow'
+            Principal:
+              AWS: '*'
+            Action: 'es:*'
+            Resource: !Sub 'arn:aws:es:us-east-1:${AWS::AccountId}:domain/blog-os-domain/*'
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: 'true'
+        override_main_response_version: 'true'
+      EncryptionAtRestOptions:
+        Enabled: true
+        KmsKeyId: !Ref Key
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: admin
+          MasterUserPassword: Password123!
+
+  GrafanaPrometheusPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: 
+       - !Ref AmazonGrafanaWorkspaceIAMRole
+      PolicyName: AmazonGrafanaPrometheusPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - aps:QueryMetrics
+              - aps:GetLabels
+              - aps:GetSeries
+              - aps:GetMetricMetadata
+              - aps:ListWorkspaces
+              - aps:DescribeWorkspace
+            Resource: '*'
+
+  AmazonGrafanaWorkspaceIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - grafana.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+
+  AmazonGrafanaWorkspace:
+    Type: 'AWS::Grafana::Workspace'
+    Properties:
+      AccountAccessType: CURRENT_ACCOUNT
+      Name: BlogAmazonGrafanaWorkspace
+      Description: Amazon Grafana Workspace
+      AuthenticationProviders:
+        - AWS_SSO
+      PermissionType: CUSTOMER_MANAGED
+      GrafanaVersion: '9.4'
+      RoleArn: !Ref AmazonGrafanaWorkspaceIAMRole
+
+
+Outputs:
+  PrometheusReceiverEndpoint:
+    Description: Add the Prometheus Endpoint to your adot config
+    Value: !Join [ '', [ !GetAtt AmpWorkspace.PrometheusEndpoint, api/v1/remote_write]]
+  ECSTaskExecutionRoleARN:
+    Description: Add to your task definition  
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+  ECSTaskRoleARN:
+    Description: Add to your task definition  
+    Value: !GetAtt ECSTaskRole.Arn
+  BlogOpenSearchDomainEndpoint:
+    Value: !GetAtt BlogOpenSearchDomain.DomainEndpoint
+  BlogOpenSearchDomainDashboard:
+    Value: !Join [ '', [ !GetAtt BlogOpenSearchDomain.DomainEndpoint, /_dashboards]]
+  BlogPrivateSubnetAz1Id:
+    Description: Private subnet Id for your Service Definition
+    Value: !GetAtt BlogPrivateSubnetAZ1.SubnetId
+  BlogPrivateSubnetAz2Id:
+    Description: Private subnet Id for your Service Definition
+    Value: !GetAtt BlogPrivateSubnetAZ2.SubnetId
+  BlogEcsAppSecurityGroup:
+    Description: App Security group for your Applicaiton Task
+    Value: !Ref BlogEcsSecurityGroup
+  SecurityGroupADOT:
+    Description: Allows metrics and log traffic on port 4317
+    Value: !Ref BlogAdotCollectorSecurityGroup
+  SecurityGroupDefault:
+    Description: Default Secuirty group for your Application Task
+    Value: 
+      Fn::GetAtt : ["BlogVPC", "DefaultSecurityGroup"]
+  TargetGroupArn:
+    Description: TargetGroupArn to add to your application service definition
+    Value: !Ref TargetGroup
+  LoadBalancerName:
+    Description: Name of the application load balancer for the service definition
+    Value: !Ref BlogLoadBalancer
+  GrafanaEndpoint:
+    Description: Grafana Endpoint to view metrics
+    Value: !GetAtt AmazonGrafanaWorkspace.Endpoint

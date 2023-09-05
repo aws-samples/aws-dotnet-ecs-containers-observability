@@ -1,0 +1,50 @@
+{
+    "cluster": "BlogCluster",
+    "deploymentConfiguration": {
+        "maximumPercent": 200,
+        "minimumHealthyPercent": 0
+    },
+    "deploymentController": {
+        "type": "ECS"
+    },
+    "desiredCount": 1,
+    "enableECSManagedTags": true,
+    "enableExecuteCommand": true,
+    "launchType": "FARGATE",
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+          "securityGroups": [
+            "<SECURITY-GROUP-ID-ADOT>"
+          ],
+          "subnets": [
+            "<PRIVATE-SUBNET-ID>"
+          ]
+           }
+    },
+    "platformVersion": "LATEST",
+    "propagateTags": "SERVICE",
+    "serviceName": "adot-service",
+    "serviceConnectConfiguration": {
+        "enabled": true,
+        "services": [
+            {
+                "portName": "adot-4317-tcp",
+                "clientAliases": [
+                    {
+                        "port": 4317
+                    }
+                ]
+            }
+        ],
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-create-group": "true",
+                "awslogs-group": "/ecs/blog-app-service-connect-proxy",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "service-connect-proxy"
+            }
+        }
+    },
+    "taskDefinition": "blog-adot-task-definition"
+}

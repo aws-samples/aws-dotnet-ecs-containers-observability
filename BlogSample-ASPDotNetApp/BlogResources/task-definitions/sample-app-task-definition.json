@@ -1,0 +1,74 @@
+{
+  "family": "sample-app",
+  "taskRoleArn": "<YOUR-TASK-ROLE-IAM>",
+  "executionRoleArn": "<YOUR-TASK-EXECUTION-ROLE-IAM>",
+  "networkMode": "bridge",
+  "requiresCompatibilities": [
+    "EC2"
+  ],
+  "containerDefinitions": [
+    {
+      "name": "log_router",
+      "image": "906394416424.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:stable",
+      "essential": true,
+      "cpu": 256,
+      "memory": 512,
+      "firelensConfiguration": {
+        "type": "fluentbit"
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "app-firelens-container",
+          "awslogs-region": "us-east-1",
+          "awslogs-create-group": "true",
+          "awslogs-stream-prefix": "firelens"
+        }
+      },
+      "memoryReservation": 50
+    },
+    {
+      "name": "sample-app",
+      "image": "public.ecr.aws/g6m4m4a5/sample-app:latest",
+      "essential": true,
+      "cpu": 512,
+      "memory": 1024,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        },
+        {
+          "containerPort": 443,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
+          "value": "http://adot-4317-tcp.blogcluster:4317"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awsfirelens",
+        "options": {
+          "Name": "es",
+          "Host": "search-blog-os-domain-xy6u5vuubabcuvefwnhwhru6zi.us-east-1.es.amazonaws.com",
+          "Port": "443",
+          "Suppress_Type_Name": "On",
+          "Index": "fl-fluentbit",
+          "AWS_Auth": "On",
+          "AWS_Region": "us-east-1",
+          "tls": "On"
+        }
+      },
+      "dependsOn": [
+        {
+          "containerName": "log_router",
+          "condition": "START"
+        }
+      ],
+      "memoryReservation": 100
+    }
+  ]
+}

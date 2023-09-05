@@ -1,0 +1,45 @@
+{
+  "family": "blog-adot-task-definition",
+  "networkMode": "awsvpc",
+  "taskRoleArn": "<YOUR-TASK-ROLE-IAM>",
+  "executionRoleArn": "<YOUR-TASK-EXECUTION-ROLE-IAM>",
+  "memory": "1024",
+  "cpu": "512",
+  "requiresCompatibilities": [
+    "EC2",
+    "FARGATE"
+  ],
+  "containerDefinitions": [
+    {
+      "name": "adot",
+      "image": "public.ecr.aws/aws-observability/aws-otel-collector:latest",
+      "essential": true,
+      "memory": 1024,
+      "cpu": 512,
+      "portMappings": [
+        {
+          "name": "adot-4317-tcp",
+          "hostPort": 4317,
+          "containerPort": 4317,
+          "protocol": "tcp",
+          "appProtocol": "http2"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "AOT_CONFIG_CONTENT",
+          "valueFrom": "otel-collector-config"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-create-group": "true",
+          "awslogs-group": "/ecs/blog-adot",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

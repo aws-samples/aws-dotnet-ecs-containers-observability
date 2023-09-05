@@ -1,0 +1,37 @@
+Quick Steps
+
+1. Deploy the cloudformation template. This well deploy the following resources..
+    -- A vpc with 2 availbility zones with a public and private subnet in each.
+    -- A load balancer with a ip type target group.
+    -- A ECS cluster with 1 EC2 instance node based on linux.
+    -- A cloudmap Namcespace to easily connect services on your cluster
+    -- 2 ECR repositories for pushing your application and custom adot images.
+    -- Amazon Opensearch Cluster to send logs.
+    -- Amazon Managed Prometheus to send metrics.
+   
+aws cloudformation deploy --template ./blog-cf-template.yml --stack-name blog-solution-stack --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+
+2. Update and register and deploy your adot task defintion.
+
+    -- Update the ecsTaskRole and ecsTaskExecutionRole with the respective arns from the cloudwatch output.
+    -- Run the following command using the ecs cli to registier the adot test definition
+
+        aws ecs register-task-definition --cli-input-json file://adot-task-definition.json --region us-east-1
+
+3. Updated and deploy your ECS Service.
+    -- Add the private subnets from the cloudformation output to the service-connect-adot.json
+    -- Add the default security group to your service and the AdotService Security group to your service.
+    -- Run the following command to launch your service.
+
+  aws ecs create-service --cluster BlogCluster --cli-input-json file://adot-service.json --region us-east-1
+
+
+4. Register App Task Definition
+
+     aws ecs register-task-definition --cli-input-json file://sample-app-task-definition.json --region us-east-1
+
+5. Launch the application service by runnin the following command.
+
+   aws ecs create-service --cluster BlogCluster --cli-input-json file://sample-app-service.json --region us-east-1
+
+
