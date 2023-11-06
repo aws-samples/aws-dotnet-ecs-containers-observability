@@ -4,7 +4,7 @@
 
 ## Introduction
 This sample application is designed to demonstrate how to instrument .NET applications using OpenTelemetry.
-It should be used alongside the [.NET Observability with OpenTelemetry blog series.](https://aws.amazon.com/blogs/dotnet/net-observability-with-opentelemetry-part-1-metrics-using-amazon-prometheus-and-amazon-grafana/) blog series for optimal
+It should be used alongside the [.NET Observability with OpenTelemetry blog series](https://aws.amazon.com/blogs/dotnet/net-observability-with-opentelemetry-part-1-metrics-using-amazon-prometheus-and-amazon-grafana/) for optimal
 understanding and integration with AWS services.
 
 ## Getting Started
