@@ -46,5 +46,5 @@
             }
         }
     },
-    "taskDefinition": "blog-adot-task-definition"
+    "taskDefinition": "adot-task-definition"
 }

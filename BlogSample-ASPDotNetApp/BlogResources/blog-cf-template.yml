@@ -285,7 +285,96 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess
         - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-    
+  
+  SampleAppTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Family: "sample-app-task-definition"
+      TaskRoleArn: !Ref ECSTaskRole
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      NetworkMode: "bridge"
+      RequiresCompatibilities: 
+        - "EC2"
+      ContainerDefinitions: 
+        - Name: "log_router"
+          Image: "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+          Essential: true
+          Cpu: 256
+          Memory: 512
+          FirelensConfiguration: 
+            Type: "fluentbit"
+          LogConfiguration: 
+            LogDriver: "awslogs"
+            Options: 
+              awslogs-group: "app-firelens-container"
+              awslogs-region: "us-east-1"
+              awslogs-create-group: "true"
+              awslogs-stream-prefix: "firelens"
+          MemoryReservation: 50
+        - Name: "sample-app"
+          Image: "public.ecr.aws/g6m4m4a5/sample-app:latest"
+          Essential: true
+          Cpu: 512
+          Memory: 1024
+          PortMappings: 
+            - ContainerPort: 80
+              Protocol: "tcp"
+            - ContainerPort: 443
+              Protocol: "tcp"
+          Environment: 
+            - Name: "OTEL_EXPORTER_OTLP_ENDPOINT"
+              Value: "http://adot-4317-tcp.blogcluster:4317"
+          LogConfiguration: 
+            LogDriver: "awsfirelens"
+            Options: 
+              Name: "es"
+              Host: !GetAtt BlogOpenSearchDomain.DomainEndpoint
+              Port: "443"
+              Suppress_Type_Name: "On"
+              Index: "fl-fluentbit"
+              AWS_Auth: "On"
+              AWS_Region: "us-east-1"
+              tls: "On"
+          DependsOn: 
+            - ContainerName: "log_router"
+              Condition: "START"
+          MemoryReservation: 100
+
+  AdotTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Family: "adot-task-definition"
+      NetworkMode: "awsvpc"
+      TaskRoleArn: !Ref ECSTaskRole
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      Memory: "1024"
+      Cpu: "512"
+      RequiresCompatibilities: 
+        - "EC2"
+        - "FARGATE"
+      ContainerDefinitions: 
+        - Name: "adot"
+          Image: "public.ecr.aws/aws-observability/aws-otel-collector:latest"
+          Essential: true
+          Memory: 1024
+          Cpu: 512
+          PortMappings: 
+            - Name: "adot-4317-tcp"
+              HostPort: 4317
+              ContainerPort: 4317
+              Protocol: "tcp"
+              AppProtocol: "http2"
+          Secrets: 
+            - Name: "AOT_CONFIG_CONTENT"
+              ValueFrom: "otel-collector-config"
+          LogConfiguration: 
+            LogDriver: "awslogs"
+            Options: 
+              awslogs-create-group: "true"
+              awslogs-group: "/ecs/blog-adot"
+              awslogs-region: "us-east-1"
+              awslogs-stream-prefix: "ecs"
+          
 
   AdotConfigAccessPolicy:
     Type: AWS::IAM::Policy
@@ -306,7 +395,7 @@ Resources:
     Properties:
       Name: otel-collector-config
       Type: String
-      Value: |
+      Value: !Sub |
         receivers:
           otlp:
             protocols:
@@ -318,7 +407,7 @@ Resources:
 
         exporters:
           prometheusremotewrite:
-            endpoint: <YOUR-APS-WORKSPACE-ENDPOINT>/api/v1/remote_write
+            endpoint: ${AmpWorkspace.PrometheusEndpoint}api/v1/remote_write
             auth:
               authenticator: sigv4auth
           awsxray:
@@ -524,6 +613,28 @@ Resources:
               - aps:ListWorkspaces
               - aps:DescribeWorkspace
             Resource: '*'
+
+  GrafanaOpenSearchPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles: 
+       - !Ref AmazonGrafanaWorkspaceIAMRole
+      PolicyName: GrafanaOpenSearchPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - es:ESHttpGet
+              - es:DescribeElasticsearchDomains
+              - es:ListDomainNames
+            Resource: '*'
+          - Effect: Allow
+            Action: 
+              - es:ESHttpPost
+            Resource:
+              - "arn:aws:es:*:*:domain/*/_msearch*"
+              - "arn:aws:es:*:*:domain/*/_opendistro/_pp"
 
   AmazonGrafanaWorkspaceIAMRole:
     Type: 'AWS::IAM::Role'

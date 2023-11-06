@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "log_router",
-      "image": "906394416424.dkr.ecr.us-east-1.amazonaws.com/aws-for-fluent-bit:stable",
+      "image": "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable",
       "essential": true,
       "cpu": 256,
       "memory": 512,

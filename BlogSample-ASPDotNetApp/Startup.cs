@@ -48,17 +48,34 @@ namespace BlogSample_ASPDotNetApp
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
             });
-
+            
             #region OpenTelemetry
             var serviceName = "sample-app";
             var serviceVersion = "1.0";
-            //var MyActivitySource = new ActivitySource(serviceName);
 
             var appResourceBuilder = ResourceBuilder.CreateDefault()
                     .AddService(serviceName: serviceName, serviceVersion: serviceVersion);
 
             //Configure important OpenTelemetry settings, the console exporter, and instrumentation library
 
+            var meter = new Meter(serviceName); 
+            meter.CreateCounter<long>("app.request-counter");
+            
+            services.AddOpenTelemetry().WithMetrics(metricProviderBuilder =>
+            {
+                metricProviderBuilder
+                    .AddConsoleExporter()
+                    .AddOtlpExporter(options =>
+                    {
+                        options.Protocol = OtlpExportProtocol.Grpc;
+                        options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
+                    })
+                    .AddMeter(meter.Name)
+                    .SetResourceBuilder(appResourceBuilder)
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation();
+
+            });
 
             services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
             {
@@ -80,27 +97,6 @@ namespace BlogSample_ASPDotNetApp
             });
 
             Sdk.SetDefaultTextMapPropagator(new AWSXRayPropagator());
-
-            var meter = new Meter(serviceName);
-            var counter = meter.CreateCounter<long>("app.request-counter");
-
-
-            services.AddOpenTelemetry().WithMetrics(metricProviderBuilder =>
-            {
-                metricProviderBuilder
-                    .AddConsoleExporter()
-                    .AddOtlpExporter(options =>
-                    {
-                        options.Protocol = OtlpExportProtocol.Grpc;
-                        options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
-                    })
-                    .AddMeter(meter.Name)
-                    .SetResourceBuilder(appResourceBuilder)
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
-
-            });
-
             #endregion
 
 

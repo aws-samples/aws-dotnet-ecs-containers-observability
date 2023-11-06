@@ -15,7 +15,7 @@
   "serviceName": "app-service",
   "loadBalancers": [
     {
-      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:524935505455:targetgroup/BlogEcsInstanceTg/f11c34ee9dc74daa",
+      "targetGroupArn": "<TARGET-GROUP-ARN>",
       "loadBalancerName": "",
       "containerName": "sample-app",
       "containerPort": 80
@@ -35,6 +35,6 @@
       }
     }
   },
-  "taskDefinition": "sample-app"
+  "taskDefinition": "sample-app-task-definition"
 }
                         
