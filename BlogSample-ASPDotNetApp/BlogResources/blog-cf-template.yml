@@ -1,7 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Metadata:
-    Generator: "former2"
-Description: ""
+Description: "This stack contains resources for the .NET Observability with OpenTelemetry blog series."
+
+Parameters:
+  LatestAmiId :
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id'
+
 Resources:
 
 #Networking Section
@@ -254,7 +258,7 @@ Resources:
   EC2LaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      ImageId: ami-0507dff4275d8dd6d # Replace with your desired Amazon Linux AMI ID
+      ImageId: !Ref LatestAmiId
       InstanceType: t3.xlarge
       SecurityGroups:
         - !Ref BlogEcsSecurityGroup
@@ -307,7 +311,7 @@ Resources:
             LogDriver: "awslogs"
             Options: 
               awslogs-group: "app-firelens-container"
-              awslogs-region: "us-east-1"
+              awslogs-region: !Ref AWS::Region
               awslogs-create-group: "true"
               awslogs-stream-prefix: "firelens"
           MemoryReservation: 50
@@ -333,7 +337,7 @@ Resources:
               Suppress_Type_Name: "On"
               Index: "fl-fluentbit"
               AWS_Auth: "On"
-              AWS_Region: "us-east-1"
+              AWS_Region: !Ref AWS::Region
               tls: "On"
           DependsOn: 
             - ContainerName: "log_router"
@@ -372,7 +376,7 @@ Resources:
             Options: 
               awslogs-create-group: "true"
               awslogs-group: "/ecs/blog-adot"
-              awslogs-region: "us-east-1"
+              awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: "ecs"
           
 
@@ -411,13 +415,13 @@ Resources:
             auth:
               authenticator: sigv4auth
           awsxray:
-            region: us-east-1
+            region: ${AWS::Region}
           logging:
             loglevel: debug
 
         extensions:
           sigv4auth:
-            region: us-east-1 
+            region: ${AWS::Region} 
             
         service:
           extensions: [sigv4auth]
@@ -581,7 +585,7 @@ Resources:
             Principal:
               AWS: '*'
             Action: 'es:*'
-            Resource: !Sub 'arn:aws:es:us-east-1:${AWS::AccountId}:domain/blog-os-domain/*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/blog-os-domain/*'
       AdvancedOptions:
         rest.action.multi.allow_explicit_index: 'true'
         override_main_response_version: 'true'
@@ -666,7 +670,7 @@ Resources:
 
 Outputs:
   PrometheusReceiverEndpoint:
-    Description: Add the Prometheus Endpoint to your adot config
+    Description: Prometheus Endpoint to your ADOT Collector config
     Value: !Join [ '', [ !GetAtt AmpWorkspace.PrometheusEndpoint, api/v1/remote_write]]
   ECSTaskExecutionRoleARN:
     Description: Add to your task definition  
@@ -685,15 +689,11 @@ Outputs:
     Description: Private subnet Id for your Service Definition
     Value: !GetAtt BlogPrivateSubnetAZ2.SubnetId
   BlogEcsAppSecurityGroup:
-    Description: App Security group for your Applicaiton Task
+    Description: App Security group for your Application Task
     Value: !Ref BlogEcsSecurityGroup
-  SecurityGroupADOT:
+  ADOTSecurityGroupId:
     Description: Allows metrics and log traffic on port 4317
     Value: !Ref BlogAdotCollectorSecurityGroup
-  SecurityGroupDefault:
-    Description: Default Secuirty group for your Application Task
-    Value: 
-      Fn::GetAtt : ["BlogVPC", "DefaultSecurityGroup"]
   TargetGroupArn:
     Description: TargetGroupArn to add to your application service definition
     Value: !Ref TargetGroup

@@ -20,7 +20,7 @@
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "app-firelens-container",
-          "awslogs-region": "us-east-1",
+          "awslogs-region": "<YOUR-AWS-REGION>",
           "awslogs-create-group": "true",
           "awslogs-stream-prefix": "firelens"
         }
@@ -53,7 +53,7 @@
         "logDriver": "awsfirelens",
         "options": {
           "Name": "es",
-          "Host": "search-blog-os-domain-xy6u5vuubabcuvefwnhwhru6zi.us-east-1.es.amazonaws.com",
+          "Host": "<YOUR-OS-DOMAIN-ENDPOINT>",
           "Port": "443",
           "Suppress_Type_Name": "On",
           "Index": "fl-fluentbit",

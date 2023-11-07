@@ -15,7 +15,7 @@
   "serviceName": "app-service",
   "loadBalancers": [
     {
-      "targetGroupArn": "<TARGET-GROUP-ARN>",
+      "targetGroupArn": "<TargetGroupArn>",
       "loadBalancerName": "",
       "containerName": "sample-app",
       "containerPort": 80

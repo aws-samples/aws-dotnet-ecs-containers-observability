@@ -14,10 +14,11 @@
     "networkConfiguration": {
         "awsvpcConfiguration": {
           "securityGroups": [
-            "<SECURITY-GROUP-ID-ADOT>"
+            "<ADOTSecurityGroupId>"
           ],
           "subnets": [
-            "<PRIVATE-SUBNET-ID>"
+            "<BlogPrivateSubnetAz1Id>",
+            "<BlogPrivateSubnetAz2Id>"
           ]
            }
     },
