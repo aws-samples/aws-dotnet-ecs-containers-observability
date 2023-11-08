@@ -58,9 +58,8 @@ namespace BlogSample_ASPDotNetApp
 
             //Configure important OpenTelemetry settings, the console exporter, and instrumentation library
 
-            var meter = new Meter(serviceName); 
-            meter.CreateCounter<long>("app.request-counter");
-            
+            var meter = new Meter(serviceName);
+            services.AddSingleton<Meter>(meter);
             services.AddOpenTelemetry().WithMetrics(metricProviderBuilder =>
             {
                 metricProviderBuilder
@@ -76,7 +75,7 @@ namespace BlogSample_ASPDotNetApp
                     .AddHttpClientInstrumentation();
 
             });
-
+            
             services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
             {
                 tracerProviderBuilder
@@ -85,7 +84,7 @@ namespace BlogSample_ASPDotNetApp
                     {
                         options.Protocol = OtlpExportProtocol.Grpc;
                         options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
-
+            
                     })
                     .AddSource(serviceName)
                     .SetResourceBuilder(appResourceBuilder.AddTelemetrySdk())
@@ -93,7 +92,7 @@ namespace BlogSample_ASPDotNetApp
                     .AddAWSInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddAspNetCoreInstrumentation();
-
+            
             });
 
             Sdk.SetDefaultTextMapPropagator(new AWSXRayPropagator());
