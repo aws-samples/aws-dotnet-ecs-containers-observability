@@ -32,7 +32,7 @@ namespace BlogSample_ASPDotNetApp.Controllers
             activity?.SetTag("http.page", "HomeIndex");
 
             var requestCounter = _meter.CreateCounter<long>("api-request");
-            var requestHistogram = _meter.CreateHistogram<long>("api-request-counter");
+            var requestHistogram = _meter.CreateHistogram<long>("api-request-percentile");
             requestCounter.Add(1);
             requestHistogram.Record(new Random().Next(0,100));
             
@@ -42,10 +42,7 @@ namespace BlogSample_ASPDotNetApp.Controllers
 
         public IActionResult Index()
         {
-            var requestCounter = _meter.CreateCounter<long>("home-request");
-            var requestHistogram = _meter.CreateHistogram<long>("home-request-counter");
-            requestCounter.Add(1);
-            requestHistogram.Record(new Random().Next(0,100));
+
             _logger.LogDebug("A user has visited the sample site.");
             
             return View();
