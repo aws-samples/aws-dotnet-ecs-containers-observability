@@ -666,6 +666,7 @@ Resources:
       PermissionType: CUSTOMER_MANAGED
       GrafanaVersion: '9.4'
       RoleArn: !Ref AmazonGrafanaWorkspaceIAMRole
+      PluginAdminEnabled: true
 
 
 Outputs:
@@ -703,3 +704,6 @@ Outputs:
   GrafanaEndpoint:
     Description: Grafana Endpoint to view metrics
     Value: !GetAtt AmazonGrafanaWorkspace.Endpoint
+  GrafanaWorkspaceIAMRole:
+    Description: Grafana IAM Role ARN
+    Value: !GetAtt AmazonGrafanaWorkspaceIAMRole.Arn

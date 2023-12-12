@@ -50,7 +50,7 @@ namespace BlogSample_ASPDotNetApp.Controllers
 
         public IActionResult Privacy()
         {
-            _logger.LogDebug("The Privacy link was clicked by the user");
+            _logger.LogDebug("The privacy page was visited by the user.");
             return View();
         }
 
