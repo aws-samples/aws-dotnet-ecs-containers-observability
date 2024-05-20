@@ -321,7 +321,7 @@ Resources:
           Cpu: 512
           Memory: 1024
           PortMappings: 
-            - ContainerPort: 80
+            - ContainerPort: 8080
               Protocol: "tcp"
             - ContainerPort: 443
               Protocol: "tcp"
