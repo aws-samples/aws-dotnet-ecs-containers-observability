@@ -1,5 +1,5 @@
 {
-  "family": "sample-app",
+  "family": "sample-app-task-definition",
   "taskRoleArn": "<YOUR-TASK-ROLE-IAM>",
   "executionRoleArn": "<YOUR-TASK-EXECUTION-ROLE-IAM>",
   "networkMode": "bridge",
@@ -35,7 +35,7 @@
       "memory": 1024,
       "portMappings": [
         {
-          "containerPort": 80,
+          "containerPort": 8080,
           "protocol": "tcp"
         },
         {

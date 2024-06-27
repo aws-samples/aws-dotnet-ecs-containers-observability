@@ -1,5 +1,5 @@
 {
-  "family": "blog-adot-task-definition",
+  "family": "adot-task-definition",
   "networkMode": "awsvpc",
   "taskRoleArn": "<YOUR-TASK-ROLE-IAM>",
   "executionRoleArn": "<YOUR-TASK-EXECUTION-ROLE-IAM>",
