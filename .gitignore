@@ -365,3 +365,5 @@ FodyWeavers.xsd
 # Other file
 codescan_09-12-23.txt
 .DS_Store
+
+.idea/
