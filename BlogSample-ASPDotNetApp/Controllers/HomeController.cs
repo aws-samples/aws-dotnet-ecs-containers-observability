@@ -24,19 +24,14 @@ namespace BlogSample_ASPDotNetApp.Controllers
 
         public string OutgoingHttp()
         {
-            //Custom Traces
-            MyActivitySource = new ActivitySource("OutgoingHttpCall", "1");
-            using var activity = MyActivitySource.StartActivity("VisitHome", ActivityKind.Server); // this will be translated to a X-Ray Segment
-            activity?.SetTag("http.method", "GET");
-            activity?.SetTag("http.url", "http://www.sample-app.com/outgoing-http-call");
-            activity?.SetTag("http.page", "HomeIndex");
+            
+            _ = httpClient.GetAsync("https://aws.amazon.com").Result;
 
             var requestCounter = _meter.CreateCounter<long>("api-request");
             var requestHistogram = _meter.CreateHistogram<long>("api-request-percentile");
             requestCounter.Add(1);
             requestHistogram.Record(new Random().Next(0,100));
             
-            _ = httpClient.GetAsync("https://aws.amazon.com").Result;
             return "Successfully invoked the Http Call to aws.amazon.com";
         }
 

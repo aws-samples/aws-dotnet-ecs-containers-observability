@@ -19,8 +19,6 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
-using OpenTelemetry.Contrib.Extensions.AWSXRay.Trace;
-using OpenTelemetry.Logs;
 
 
 namespace BlogSample_ASPDotNetApp
@@ -76,26 +74,23 @@ namespace BlogSample_ASPDotNetApp
 
             });
             
-            services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
-            {
+            services.AddOpenTelemetry()
+                .WithTracing(tracerProviderBuilder =>
+                
                 tracerProviderBuilder
+                    .AddSource(serviceName)
+                    .SetResourceBuilder(appResourceBuilder.AddTelemetrySdk())
+                    .AddAWSInstrumentation()
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
                     .AddConsoleExporter()
                     .AddOtlpExporter(options =>
                     {
                         options.Protocol = OtlpExportProtocol.Grpc;
                         options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
-            
-                    })
-                    .AddSource(serviceName)
-                    .SetResourceBuilder(appResourceBuilder.AddTelemetrySdk())
-                    .AddXRayTraceId() // Creates an Xray Compatible Trace Id.
-                    .AddAWSInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddAspNetCoreInstrumentation();
-            
-            });
 
-            Sdk.SetDefaultTextMapPropagator(new AWSXRayPropagator());
+                    }));
+            
             #endregion
 
 
