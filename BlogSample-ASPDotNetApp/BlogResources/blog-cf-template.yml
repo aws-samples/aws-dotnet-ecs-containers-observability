@@ -5,6 +5,12 @@ Parameters:
   LatestAmiId :
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id'
+  OpenSearchMasterUserName:
+    Type: String
+    Default: 'admin'
+    Description: 'Master user name for the OpenSearch internal user database. The password is generated at stack creation time and stored in AWS Secrets Manager.'
+    MinLength: 1
+    MaxLength: 64
 
 Resources:
 
@@ -557,6 +563,19 @@ Resources:
               - kms:List*
             Resource: "*"
 
+#OpenSearch master user credentials, generated at stack creation time
+  BlogOpenSearchMasterSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}-opensearch-master-user'
+      Description: Master user credentials for the blog OpenSearch domain
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username":"${OpenSearchMasterUserName}"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        RequireEachIncludedType: true
+        ExcludeCharacters: '"''@/\`$&|<>(){}[]:;,^~%'
+
 #OpenSearch Domain
   BlogOpenSearchDomain:
     Type: AWS::OpenSearchService::Domain
@@ -596,8 +615,8 @@ Resources:
         Enabled: true
         InternalUserDatabaseEnabled: true
         MasterUserOptions:
-          MasterUserName: admin
-          MasterUserPassword: Password123!
+          MasterUserName: !Ref OpenSearchMasterUserName
+          MasterUserPassword: !Sub '{{resolve:secretsmanager:${BlogOpenSearchMasterSecret}:SecretString:password}}'
 
   GrafanaPrometheusPolicy:
     Type: AWS::IAM::Policy
@@ -683,6 +702,15 @@ Outputs:
     Value: !GetAtt BlogOpenSearchDomain.DomainEndpoint
   BlogOpenSearchDomainDashboard:
     Value: !Join [ '', [ !GetAtt BlogOpenSearchDomain.DomainEndpoint, /_dashboards]]
+  BlogOpenSearchMasterUserName:
+    Description: Master user name for the OpenSearch dashboards login
+    Value: !Ref OpenSearchMasterUserName
+  BlogOpenSearchMasterSecretArn:
+    Description: ARN of the Secrets Manager secret holding the generated master user password
+    Value: !Ref BlogOpenSearchMasterSecret
+  BlogOpenSearchMasterPasswordCommand:
+    Description: CLI command to retrieve the generated master user password
+    Value: !Sub 'aws secretsmanager get-secret-value --secret-id ${BlogOpenSearchMasterSecret} --query SecretString --output text'
   BlogPrivateSubnetAz1Id:
     Description: Private subnet Id for your Service Definition
     Value: !GetAtt BlogPrivateSubnetAZ1.SubnetId
